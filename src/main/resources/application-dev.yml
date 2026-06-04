@@ -1,2 +1,1 @@
-hmpps-auth:
-  url: "http://localhost:8090/auth"
+# this file only had hmpps auth url property which is no longer needed - will keep this file for now

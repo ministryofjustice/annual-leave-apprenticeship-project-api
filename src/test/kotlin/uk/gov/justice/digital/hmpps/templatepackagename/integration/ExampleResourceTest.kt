@@ -14,39 +14,9 @@ class ExampleResourceTest : IntegrationTestBase() {
   inner class TimeEndpoint {
 
     @Test
-    fun `should return unauthorized if no token`() {
-      webTestClient.get()
-        .uri("/example/time")
-        .exchange()
-        .expectStatus()
-        .isUnauthorized
-    }
-
-    @Test
-    fun `should return forbidden if no role`() {
-      webTestClient.get()
-        .uri("/example/time")
-        .headers(setAuthorisation())
-        .exchange()
-        .expectStatus()
-        .isForbidden
-    }
-
-    @Test
-    fun `should return forbidden if wrong role`() {
-      webTestClient.get()
-        .uri("/example/time")
-        .headers(setAuthorisation(roles = listOf("ROLE_WRONG")))
-        .exchange()
-        .expectStatus()
-        .isForbidden
-    }
-
-    @Test
     fun `should return OK`() {
       webTestClient.get()
         .uri("/example/time")
-        .headers(setAuthorisation(roles = listOf("ROLE_TEMPLATE_KOTLIN__UI")))
         .exchange()
         .expectStatus()
         .isOk

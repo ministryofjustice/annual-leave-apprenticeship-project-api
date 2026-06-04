@@ -11,16 +11,6 @@ spring:
 #  jackson:
 #    date-format: "yyyy-MM-dd HH:mm:ss"
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: ${hmpps-auth.url}/.well-known/jwks.json
-
-      client:
-        provider:
-          hmpps-auth:
-            token-uri: ${hmpps-auth.url}/oauth/token
   http:
     codecs:
       max-in-memory-size: 10MB
