@@ -97,4 +97,87 @@ class RequestsControllerTest : IntegrationTestBase() {
         .jsonPath("$.userMessage").isEqualTo("Unexpected error: Something went wrong")
     }
   }
+
+  @Nested
+  @DisplayName("POST /requests")
+  inner class CreateRequest {
+
+    @Test
+    fun `should create a leave request and return 201`() {
+      webTestClient.post()
+        .uri("/requests")
+        .header("X-User-Id", aliceId)
+        .header("Content-Type", "application/json")
+        .bodyValue(
+          """
+          {
+            "startDate": "2026-06-01",
+            "endDate": "2026-06-05",
+
+            "isFirstDayHalfDay": false,
+            "isLastDayHalfDay": true,
+            "creatorNote": "Holiday"
+          }
+          """.trimIndent(),
+        )
+        .exchange()
+        .expectStatus().isCreated
+        .expectBody()
+        .jsonPath("$.creatorId").isEqualTo(aliceId)
+        .jsonPath("$.approverId").isEqualTo(bobId)
+        .jsonPath("$.startDate").isEqualTo("2026-06-01")
+        .jsonPath("$.endDate").isEqualTo("2026-06-05")
+        .jsonPath("$.duration").isEqualTo(4.5)
+        .jsonPath("$.isFirstDayHalfDay").isEqualTo(false)
+        .jsonPath("$.isLastDayHalfDay").isEqualTo(true)
+        .jsonPath("$.status").isEqualTo("PENDING")
+        .jsonPath("$.creatorNote").isEqualTo("Holiday")
+        .jsonPath("$.approverNote").doesNotExist()
+        .jsonPath("$.id").isNotEmpty
+        .jsonPath("$.createdAt").isNotEmpty
+    }
+
+    @Test
+    fun `should return 400 when X-User-Id header is missing`() {
+      webTestClient.post()
+        .uri("/requests")
+        .header("Content-Type", "application/json")
+        .bodyValue(
+          """
+          {
+            "startDate": "2026-06-01",
+            "endDate": "2026-06-05",
+
+            "isFirstDayHalfDay": false,
+            "isLastDayHalfDay": true
+          }
+          """.trimIndent(),
+        )
+        .exchange()
+        .expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `should return 404 when user does not exist`() {
+      webTestClient.post()
+        .uri("/requests")
+        .header("X-User-Id", "00000000-0000-0000-0000-999999999999")
+        .header("Content-Type", "application/json")
+        .bodyValue(
+          """
+          {
+            "startDate": "2026-06-01",
+            "endDate": "2026-06-05",
+
+            "isFirstDayHalfDay": false,
+            "isLastDayHalfDay": true
+          }
+          """.trimIndent(),
+        )
+        .exchange()
+        .expectStatus().isNotFound
+        .expectBody()
+        .jsonPath("$.status").isEqualTo(404)
+    }
+  }
 }
