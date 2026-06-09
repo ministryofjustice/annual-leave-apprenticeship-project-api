@@ -14,7 +14,7 @@ data class LeaveRequest(
 
   val startDate: LocalDate,
   val endDate: LocalDate,
-  val duration: Int,
+  val duration: Double,
   val isFirstDayHalfDay: Boolean,
   val isLastDayHalfDay: Boolean,
 

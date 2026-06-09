@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus.NOT_FOUND
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 data class ErrorResponse(
@@ -39,6 +41,39 @@ class HmppsTemplateKotlinExceptionHandler {
         developerMessage = e.message,
       ),
     ).also { log.info("No resource found exception: {}", e.message) }
+
+  @ExceptionHandler(UserNotFoundException::class)
+  fun handleUserNotFoundException(e: UserNotFoundException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(NOT_FOUND)
+    .body(
+      ErrorResponse(
+        status = NOT_FOUND.value(),
+        userMessage = "${e.message}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("User not found: {}", e.message) }
+
+  @ExceptionHandler(MissingRequestHeaderException::class)
+  fun handleMissingHeaderException(e: MissingRequestHeaderException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(BAD_REQUEST)
+    .body(
+      ErrorResponse(
+        status = BAD_REQUEST.value(),
+        userMessage = "Missing required header: ${e.headerName}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("Missing header: {}", e.headerName) }
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+  fun handleTypeMismatchException(e: MethodArgumentTypeMismatchException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(BAD_REQUEST)
+    .body(
+      ErrorResponse(
+        status = BAD_REQUEST.value(),
+        userMessage = "Invalid value for parameter: ${e.name}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("Type mismatch: {}", e.message) }
 
   @ExceptionHandler(Exception::class)
   fun handleException(e: Exception): ResponseEntity<ErrorResponse> = ResponseEntity
