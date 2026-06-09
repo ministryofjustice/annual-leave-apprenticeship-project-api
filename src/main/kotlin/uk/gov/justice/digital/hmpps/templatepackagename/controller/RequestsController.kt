@@ -54,8 +54,7 @@ class RequestsController(
       ),
     ],
   )
-  fun getMyRequests(@RequestHeader("X-User-Id") userId: UUID): LeaveRequestResponse =
-    LeaveRequestResponse(userRequests = leaveRequestService.getRequestsByUser(userId))
+  fun getMyRequests(@RequestHeader("X-User-Id") userId: UUID): LeaveRequestResponse = LeaveRequestResponse(userRequests = leaveRequestService.getRequestsByUser(userId))
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
