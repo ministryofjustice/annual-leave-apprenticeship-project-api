@@ -1,7 +1,21 @@
 services:
+  postgres:
+    image: postgres:16
+    container_name: hmpps-template-kotlin-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: dev
+    tmpfs:
+      - /var/lib/postgresql
+
   hmpps-template-kotlin:
     build: .
     container_name: hmpps-template-kotlin
+    depends_on:
+      postgres:
+        condition: service_started
     ports:
       - "8080:8080"
     healthcheck:
@@ -9,3 +23,4 @@ services:
     environment:
       - SERVER_PORT=8080
       - SPRING_PROFILES_ACTIVE=dev
+      - APP_DB_ENDPOINT=postgres:5432
