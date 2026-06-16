@@ -6,10 +6,21 @@ spring:
   application:
     name: hmpps-template-kotlin
 
-#  This jackson configuration is only applied for java.util.Date.
-#  It is ignored for LocalDateTime, and therefore unnecessary for most projects
-#  jackson:
-#    date-format: "yyyy-MM-dd HH:mm:ss"
+  datasource:
+    url: jdbc:postgresql://${app.db.endpoint}/${app.db.name}
+    username: ${app.db.username:root}
+    password: ${app.db.password:dev}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    locations: classpath:/db/migration
+    enabled: true
+    validate-on-migrate: true
 
   http:
     codecs:
@@ -17,6 +28,13 @@ spring:
   web:
     error:
       include-message: always
+
+app:
+  db:
+    name: postgres
+    endpoint: localhost:5432
+    username: root
+    password: dev
 
 server:
   port: 8080
