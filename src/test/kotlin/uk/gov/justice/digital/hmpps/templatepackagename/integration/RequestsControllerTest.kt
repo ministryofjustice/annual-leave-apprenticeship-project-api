@@ -1,20 +1,35 @@
 package uk.gov.justice.digital.hmpps.templatepackagename.integration
 
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.bean.override.mockito.MockitoBean
-import uk.gov.justice.digital.hmpps.templatepackagename.data.SeedData
+import uk.gov.justice.digital.hmpps.templatepackagename.repository.LeaveRequestRepository
 import uk.gov.justice.digital.hmpps.templatepackagename.service.LeaveRequestService
 import java.util.UUID
 
 class RequestsControllerTest : IntegrationTestBase() {
 
-  private val aliceId = SeedData.userAlice.id.toString()
-  private val bobId = SeedData.userBob.id.toString()
-  private val aliceRequestCount = SeedData.leaveRequests.count { it.creatorId == SeedData.userAlice.id }
+  @Autowired
+  private lateinit var leaveRequestRepository: LeaveRequestRepository
+
+  private val aliceId = "00000000-0000-0000-0000-000000000001"
+  private val bobId = "00000000-0000-0000-0000-000000000002"
+  private val seedRequestIds = setOf(
+    UUID.fromString("00000000-0000-0000-0000-000000000101"),
+    UUID.fromString("00000000-0000-0000-0000-000000000102"),
+  )
+
+  @AfterEach
+  fun cleanUp() {
+    leaveRequestRepository.findAll()
+      .filter { it.id !in seedRequestIds }
+      .forEach { leaveRequestRepository.deleteById(it.id) }
+  }
 
   @Nested
   @DisplayName("GET /requests")
@@ -28,7 +43,7 @@ class RequestsControllerTest : IntegrationTestBase() {
         .exchange()
         .expectStatus().isOk
         .expectBody()
-        .jsonPath("$.userRequests.length()").isEqualTo(aliceRequestCount)
+        .jsonPath("$.userRequests.length()").isEqualTo(2)
         .jsonPath("$.userRequests[0].creatorId").isEqualTo(aliceId)
     }
 
@@ -111,9 +126,8 @@ class RequestsControllerTest : IntegrationTestBase() {
         .bodyValue(
           """
           {
-            "startDate": "2026-06-01",
-            "endDate": "2026-06-05",
-
+            "startDate": "2026-08-03",
+            "endDate": "2026-08-07",
             "isFirstDayHalfDay": false,
             "isLastDayHalfDay": true,
             "creatorNote": "Holiday"
@@ -125,8 +139,8 @@ class RequestsControllerTest : IntegrationTestBase() {
         .expectBody()
         .jsonPath("$.creatorId").isEqualTo(aliceId)
         .jsonPath("$.approverId").isEqualTo(bobId)
-        .jsonPath("$.startDate").isEqualTo("2026-06-01")
-        .jsonPath("$.endDate").isEqualTo("2026-06-05")
+        .jsonPath("$.startDate").isEqualTo("2026-08-03")
+        .jsonPath("$.endDate").isEqualTo("2026-08-07")
         .jsonPath("$.duration").isEqualTo(4.5)
         .jsonPath("$.isFirstDayHalfDay").isEqualTo(false)
         .jsonPath("$.isLastDayHalfDay").isEqualTo(true)
@@ -145,9 +159,8 @@ class RequestsControllerTest : IntegrationTestBase() {
         .bodyValue(
           """
           {
-            "startDate": "2026-06-01",
-            "endDate": "2026-06-05",
-
+            "startDate": "2026-08-03",
+            "endDate": "2026-08-07",
             "isFirstDayHalfDay": false,
             "isLastDayHalfDay": true
           }
@@ -166,9 +179,8 @@ class RequestsControllerTest : IntegrationTestBase() {
         .bodyValue(
           """
           {
-            "startDate": "2026-06-01",
-            "endDate": "2026-06-05",
-
+            "startDate": "2026-08-03",
+            "endDate": "2026-08-07",
             "isFirstDayHalfDay": false,
             "isLastDayHalfDay": true
           }

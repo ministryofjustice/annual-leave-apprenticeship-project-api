@@ -3,28 +3,63 @@ package uk.gov.justice.digital.hmpps.templatepackagename.service
 import jakarta.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import uk.gov.justice.digital.hmpps.templatepackagename.config.UserNotFoundException
 import uk.gov.justice.digital.hmpps.templatepackagename.controller.request.CreateLeaveRequestBody
-import uk.gov.justice.digital.hmpps.templatepackagename.data.SeedData
+import uk.gov.justice.digital.hmpps.templatepackagename.model.LeaveRequest
 import uk.gov.justice.digital.hmpps.templatepackagename.model.Status
+import uk.gov.justice.digital.hmpps.templatepackagename.model.User
+import uk.gov.justice.digital.hmpps.templatepackagename.repository.LeaveRequestRepository
+import uk.gov.justice.digital.hmpps.templatepackagename.repository.UserRepository
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.util.Optional
 import java.util.UUID
 
 class LeaveRequestServiceTest {
 
-  private val service = LeaveRequestService()
+  private val leaveRequestRepository: LeaveRequestRepository = mock()
+  private val userRepository: UserRepository = mock()
+  private val service = LeaveRequestService(leaveRequestRepository, userRepository)
 
-  private val seedRequestIds = SeedData.leaveRequests.map { it.id }.toSet()
-  private val aliceRequestCount = SeedData.leaveRequests.count { it.creatorId == SeedData.userAlice.id }
+  private val alice = User(
+    id = UUID.fromString("00000000-0000-0000-0000-000000000001"),
+    name = "Alice Johnson",
+    email = "alice@example.com",
+    password = "password",
+    managerId = UUID.fromString("00000000-0000-0000-0000-000000000002"),
+    annualEntitlement = 25,
+  )
 
-  @AfterEach
-  fun cleanUp() {
-    SeedData.leaveRequests.removeIf { it.id !in seedRequestIds }
-  }
+  private val bob = User(
+    id = UUID.fromString("00000000-0000-0000-0000-000000000002"),
+    name = "Bob Smith",
+    email = "bob@example.com",
+    password = "password",
+    managerId = null,
+    annualEntitlement = 30,
+  )
+
+  private val alicePendingRequest = LeaveRequest(
+    id = UUID.fromString("00000000-0000-0000-0000-000000000101"),
+    createdAt = LocalDateTime.of(2026, 5, 20, 10, 0),
+    creatorId = alice.id,
+    approverId = bob.id,
+    startDate = LocalDate.of(2026, 6, 10),
+    endDate = LocalDate.of(2026, 6, 14),
+    duration = 4.5,
+    isFirstDayHalfDay = false,
+    isLastDayHalfDay = true,
+    status = Status.PENDING,
+    creatorNote = "Family holiday",
+  )
 
   @Nested
   @DisplayName("getRequestsByUser()")
@@ -32,15 +67,21 @@ class LeaveRequestServiceTest {
 
     @Test
     fun `should return requests for a user who has them`() {
-      val results = service.getRequestsByUser(SeedData.userAlice.id)
+      whenever(userRepository.existsById(alice.id)).thenReturn(true)
+      whenever(leaveRequestRepository.findAllByCreatorId(alice.id)).thenReturn(listOf(alicePendingRequest))
 
-      assertThat(results).hasSize(aliceRequestCount)
-      assertThat(results).allMatch { it.creatorId == SeedData.userAlice.id }
+      val results = service.getRequestsByUser(alice.id)
+
+      assertThat(results).hasSize(1)
+      assertThat(results).allMatch { it.creatorId == alice.id }
     }
 
     @Test
     fun `should return empty list when user has no requests`() {
-      val results = service.getRequestsByUser(SeedData.userBob.id)
+      whenever(userRepository.existsById(bob.id)).thenReturn(true)
+      whenever(leaveRequestRepository.findAllByCreatorId(bob.id)).thenReturn(emptyList())
+
+      val results = service.getRequestsByUser(bob.id)
 
       assertThat(results).isEmpty()
     }
@@ -48,6 +89,7 @@ class LeaveRequestServiceTest {
     @Test
     fun `should throw UserNotFoundException when user does not exist`() {
       val unknownId = UUID.randomUUID()
+      whenever(userRepository.existsById(unknownId)).thenReturn(false)
 
       assertThatThrownBy { service.getRequestsByUser(unknownId) }
         .isInstanceOf(UserNotFoundException::class.java)
@@ -59,7 +101,6 @@ class LeaveRequestServiceTest {
   @DisplayName("createRequest()")
   inner class CreateRequest {
 
-    // Uses dates that don't overlap with Alice's seed data (Jun 10-14, Jul 1-3)
     private val request = CreateLeaveRequestBody(
       startDate = LocalDate.of(2026, 8, 3),
       endDate = LocalDate.of(2026, 8, 7),
@@ -68,12 +109,20 @@ class LeaveRequestServiceTest {
       creatorNote = "Holiday",
     )
 
+    @BeforeEach
+    fun setUp() {
+      whenever(userRepository.findById(alice.id)).thenReturn(Optional.of(alice))
+      whenever(userRepository.findById(bob.id)).thenReturn(Optional.of(bob))
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any())).thenReturn(emptyList())
+      whenever(leaveRequestRepository.save(any<LeaveRequest>())).thenAnswer { it.arguments[0] }
+    }
+
     @Test
     fun `should create a leave request with calculated duration`() {
-      val result = service.createRequest(SeedData.userAlice.id, request)
+      val result = service.createRequest(alice.id, request)
 
-      assertThat(result.creatorId).isEqualTo(SeedData.userAlice.id)
-      assertThat(result.approverId).isEqualTo(SeedData.userAlice.managerId)
+      assertThat(result.creatorId).isEqualTo(alice.id)
+      assertThat(result.approverId).isEqualTo(alice.managerId)
       assertThat(result.startDate).isEqualTo(request.startDate)
       assertThat(result.endDate).isEqualTo(request.endDate)
       assertThat(result.duration).isEqualTo(4.5)
@@ -85,11 +134,13 @@ class LeaveRequestServiceTest {
       assertThat(result.decisionAt).isNull()
       assertThat(result.id).isNotNull()
       assertThat(result.createdAt).isNotNull()
+      verify(leaveRequestRepository).save(any<LeaveRequest>())
     }
 
     @Test
     fun `should throw UserNotFoundException when user does not exist`() {
       val unknownId = UUID.randomUUID()
+      whenever(userRepository.findById(unknownId)).thenReturn(Optional.empty())
 
       assertThatThrownBy { service.createRequest(unknownId, request) }
         .isInstanceOf(UserNotFoundException::class.java)
@@ -103,7 +154,7 @@ class LeaveRequestServiceTest {
         endDate = LocalDate.of(2026, 8, 3),
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, badRequest) }
+      assertThatThrownBy { service.createRequest(alice.id, badRequest) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("End date must not be before start date")
     }
@@ -117,7 +168,7 @@ class LeaveRequestServiceTest {
         isLastDayHalfDay = true,
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, singleDayBothHalves) }
+      assertThatThrownBy { service.createRequest(alice.id, singleDayBothHalves) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("duration must be greater than 0")
     }
@@ -131,89 +182,139 @@ class LeaveRequestServiceTest {
         isLastDayHalfDay = false,
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, weekendOnly) }
+      assertThatThrownBy { service.createRequest(alice.id, weekendOnly) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("duration must be greater than 0")
     }
 
     @Test
     fun `should throw ValidationException when new request overlaps end of existing request`() {
-      // Alice has a PENDING request for Jun 10-14
-      // New: Jun 12-16 overlaps the tail end
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(alicePendingRequest))
+
       val overlapping = request.copy(
         startDate = LocalDate.of(2026, 6, 12),
         endDate = LocalDate.of(2026, 6, 16),
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, overlapping) }
+      assertThatThrownBy { service.createRequest(alice.id, overlapping) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("overlap")
     }
 
     @Test
     fun `should throw ValidationException when new request overlaps start of existing request`() {
-      // New: Jun 8-11 overlaps the beginning
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(alicePendingRequest))
+
       val overlapping = request.copy(
         startDate = LocalDate.of(2026, 6, 8),
         endDate = LocalDate.of(2026, 6, 11),
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, overlapping) }
+      assertThatThrownBy { service.createRequest(alice.id, overlapping) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("overlap")
     }
 
     @Test
     fun `should throw ValidationException when new request is fully contained within existing request`() {
-      // New: Jun 11-12 sits entirely inside Jun 10-14
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(alicePendingRequest))
+
       val overlapping = request.copy(
         startDate = LocalDate.of(2026, 6, 11),
         endDate = LocalDate.of(2026, 6, 12),
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, overlapping) }
+      assertThatThrownBy { service.createRequest(alice.id, overlapping) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("overlap")
     }
 
     @Test
     fun `should throw ValidationException when new request fully contains existing request`() {
-      // New: Jun 8-16 wraps around Jun 10-14
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(alicePendingRequest))
+
       val overlapping = request.copy(
         startDate = LocalDate.of(2026, 6, 8),
         endDate = LocalDate.of(2026, 6, 16),
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, overlapping) }
+      assertThatThrownBy { service.createRequest(alice.id, overlapping) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("overlap")
     }
 
     @Test
     fun `should throw ValidationException when new request has exact same dates as existing request`() {
-      // New: Jun 10-14, exactly matching the existing request
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(alicePendingRequest))
+
       val overlapping = request.copy(
         startDate = LocalDate.of(2026, 6, 10),
         endDate = LocalDate.of(2026, 6, 14),
       )
 
-      assertThatThrownBy { service.createRequest(SeedData.userAlice.id, overlapping) }
+      assertThatThrownBy { service.createRequest(alice.id, overlapping) }
         .isInstanceOf(ValidationException::class.java)
         .hasMessageContaining("overlap")
     }
 
     @Test
     fun `should allow dates that don't overlap with existing requests`() {
-      // Bob has no existing requests, so any dates are fine
       val bobRequest = request.copy(
         startDate = LocalDate.of(2026, 6, 10),
         endDate = LocalDate.of(2026, 6, 12),
       )
 
-      val result = service.createRequest(SeedData.userBob.id, bobRequest)
+      val result = service.createRequest(bob.id, bobRequest)
 
-      assertThat(result.creatorId).isEqualTo(SeedData.userBob.id)
+      assertThat(result.creatorId).isEqualTo(bob.id)
       assertThat(result.duration).isEqualTo(2.5)
+    }
+
+    @Test
+    fun `should throw ValidationException when request exceeds annual entitlement`() {
+      // Alice has 25 days:
+      // Give her an existing 22-day approved request,
+      // then try to book 4.5 more
+      val existingLargeRequest = alicePendingRequest.copy(
+        id = UUID.randomUUID(),
+        startDate = LocalDate.of(2026, 9, 1),
+        endDate = LocalDate.of(2026, 9, 30),
+        duration = 22.0,
+        status = Status.APPROVED,
+      )
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(existingLargeRequest))
+
+      assertThatThrownBy { service.createRequest(alice.id, request) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("Insufficient annual entitlement")
+        .hasMessageContaining("3.0 days remaining")
+        .hasMessageContaining("4.5 days requested")
+    }
+
+    @Test
+    fun `should allow request when it exactly uses remaining entitlement`() {
+      // Alice has 25 days. Give her 20.5 used, then request 4.5 = exactly 25
+      val existingRequest = alicePendingRequest.copy(
+        id = UUID.randomUUID(),
+        startDate = LocalDate.of(2026, 9, 1),
+        endDate = LocalDate.of(2026, 9, 30),
+        duration = 20.5,
+        status = Status.APPROVED,
+      )
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(any(), any()))
+        .thenReturn(listOf(existingRequest))
+
+      val result = service.createRequest(alice.id, request)
+
+      assertThat(result.creatorId).isEqualTo(alice.id)
+      assertThat(result.status).isEqualTo(Status.PENDING)
+      verify(leaveRequestRepository).save(any<LeaveRequest>())
     }
   }
 }
