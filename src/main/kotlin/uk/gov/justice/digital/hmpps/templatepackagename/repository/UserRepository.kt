@@ -6,4 +6,7 @@ import uk.gov.justice.digital.hmpps.templatepackagename.model.User
 import java.util.UUID
 
 @Repository
-interface UserRepository : JpaRepository<User, UUID>
+interface UserRepository : JpaRepository<User, UUID> {
+
+  fun findByEmail(email: String): User?
+}
