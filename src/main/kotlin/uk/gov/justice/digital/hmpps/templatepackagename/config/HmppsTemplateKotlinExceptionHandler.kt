@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus.BAD_REQUEST
 import org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.springframework.http.HttpStatus.NOT_FOUND
+import org.springframework.http.HttpStatus.UNAUTHORIZED
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -52,6 +53,28 @@ class HmppsTemplateKotlinExceptionHandler {
         developerMessage = e.message,
       ),
     ).also { log.info("User not found: {}", e.message) }
+
+  @ExceptionHandler(InvalidCredentialsException::class)
+  fun handleInvalidCredentialsException(e: InvalidCredentialsException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(UNAUTHORIZED)
+    .body(
+      ErrorResponse(
+        status = UNAUTHORIZED.value(),
+        userMessage = "${e.message}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("Invalid credentials: {}", e.message) }
+
+  @ExceptionHandler(UserNotRegisteredException::class)
+  fun handleUserNotRegisteredException(e: UserNotRegisteredException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(UNAUTHORIZED)
+    .body(
+      ErrorResponse(
+        status = UNAUTHORIZED.value(),
+        userMessage = "${e.message}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("User not registered: {}", e.message) }
 
   @ExceptionHandler(MissingRequestHeaderException::class)
   fun handleMissingHeaderException(e: MissingRequestHeaderException): ResponseEntity<ErrorResponse> = ResponseEntity
