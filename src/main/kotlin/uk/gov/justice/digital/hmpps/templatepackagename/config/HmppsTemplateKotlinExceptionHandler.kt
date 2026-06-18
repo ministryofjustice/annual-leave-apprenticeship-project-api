@@ -3,6 +3,7 @@ package uk.gov.justice.digital.hmpps.templatepackagename.config
 import jakarta.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus.BAD_REQUEST
+import org.springframework.http.HttpStatus.FORBIDDEN
 import org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.springframework.http.HttpStatus.NOT_FOUND
 import org.springframework.http.HttpStatus.UNAUTHORIZED
@@ -42,6 +43,28 @@ class HmppsTemplateKotlinExceptionHandler {
         developerMessage = e.message,
       ),
     ).also { log.info("No resource found exception: {}", e.message) }
+
+  @ExceptionHandler(LeaveRequestNotFoundException::class)
+  fun handleLeaveRequestNotFoundException(e: LeaveRequestNotFoundException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(NOT_FOUND)
+    .body(
+      ErrorResponse(
+        status = NOT_FOUND.value(),
+        userMessage = "${e.message}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("Leave request not found: {}", e.message) }
+
+  @ExceptionHandler(ForbiddenException::class)
+  fun handleForbiddenException(e: ForbiddenException): ResponseEntity<ErrorResponse> = ResponseEntity
+    .status(FORBIDDEN)
+    .body(
+      ErrorResponse(
+        status = FORBIDDEN.value(),
+        userMessage = "${e.message}",
+        developerMessage = e.message,
+      ),
+    ).also { log.info("Forbidden: {}", e.message) }
 
   @ExceptionHandler(UserNotFoundException::class)
   fun handleUserNotFoundException(e: UserNotFoundException): ResponseEntity<ErrorResponse> = ResponseEntity

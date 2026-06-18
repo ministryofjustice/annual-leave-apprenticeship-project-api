@@ -12,4 +12,6 @@ interface LeaveRequestRepository : JpaRepository<LeaveRequest, UUID> {
   fun findAllByCreatorId(creatorId: UUID): List<LeaveRequest>
 
   fun findAllByCreatorIdAndStatusIn(creatorId: UUID, statuses: Collection<Status>): List<LeaveRequest>
+
+  fun findAllByApproverId(approverId: UUID): List<LeaveRequest>
 }

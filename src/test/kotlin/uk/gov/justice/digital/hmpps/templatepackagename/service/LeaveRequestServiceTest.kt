@@ -11,8 +11,11 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import uk.gov.justice.digital.hmpps.templatepackagename.config.ForbiddenException
+import uk.gov.justice.digital.hmpps.templatepackagename.config.LeaveRequestNotFoundException
 import uk.gov.justice.digital.hmpps.templatepackagename.config.UserNotFoundException
 import uk.gov.justice.digital.hmpps.templatepackagename.controller.request.CreateLeaveRequestBody
+import uk.gov.justice.digital.hmpps.templatepackagename.controller.request.DecisionRequest
 import uk.gov.justice.digital.hmpps.templatepackagename.model.LeaveRequest
 import uk.gov.justice.digital.hmpps.templatepackagename.model.Status
 import uk.gov.justice.digital.hmpps.templatepackagename.model.User
@@ -60,6 +63,65 @@ class LeaveRequestServiceTest {
     status = Status.PENDING,
     creatorNote = "Family holiday",
   )
+
+  private val aliceApprovedRequest = LeaveRequest(
+    id = UUID.fromString("00000000-0000-0000-0000-000000000102"),
+    createdAt = LocalDateTime.of(2026, 5, 15, 10, 0),
+    creatorId = alice.id,
+    approverId = bob.id,
+    startDate = LocalDate.of(2026, 7, 1),
+    endDate = LocalDate.of(2026, 7, 3),
+    duration = 3.0,
+    isFirstDayHalfDay = false,
+    isLastDayHalfDay = false,
+    status = Status.APPROVED,
+    creatorNote = "Summer trip",
+  )
+
+  @Nested
+  @DisplayName("getBalance()")
+  inner class GetBalance {
+
+    @Test
+    fun `should return balance with pending and approved days`() {
+      whenever(userRepository.findById(alice.id)).thenReturn(Optional.of(alice))
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(alice.id, listOf(Status.PENDING, Status.APPROVED)))
+        .thenReturn(listOf(alicePendingRequest, aliceApprovedRequest))
+
+      val result = service.getBalance(alice.id)
+
+      assertThat(result.annualEntitlement).isEqualTo(25)
+      assertThat(result.pendingDays).isEqualTo(4.5)
+      assertThat(result.approvedDays).isEqualTo(3.0)
+      assertThat(result.availableBalance).isEqualTo(17.5)
+      assertThat(result.actualBalance).isEqualTo(22.0)
+    }
+
+    @Test
+    fun `should return full entitlement when user has no requests`() {
+      whenever(userRepository.findById(bob.id)).thenReturn(Optional.of(bob))
+      whenever(leaveRequestRepository.findAllByCreatorIdAndStatusIn(bob.id, listOf(Status.PENDING, Status.APPROVED)))
+        .thenReturn(emptyList())
+
+      val result = service.getBalance(bob.id)
+
+      assertThat(result.annualEntitlement).isEqualTo(30)
+      assertThat(result.pendingDays).isEqualTo(0.0)
+      assertThat(result.approvedDays).isEqualTo(0.0)
+      assertThat(result.availableBalance).isEqualTo(30.0)
+      assertThat(result.actualBalance).isEqualTo(30.0)
+    }
+
+    @Test
+    fun `should throw UserNotFoundException when user does not exist`() {
+      val unknownId = UUID.randomUUID()
+      whenever(userRepository.findById(unknownId)).thenReturn(Optional.empty())
+
+      assertThatThrownBy { service.getBalance(unknownId) }
+        .isInstanceOf(UserNotFoundException::class.java)
+        .hasMessageContaining(unknownId.toString())
+    }
+  }
 
   @Nested
   @DisplayName("getRequestsByUser()")
@@ -315,6 +377,174 @@ class LeaveRequestServiceTest {
       assertThat(result.creatorId).isEqualTo(alice.id)
       assertThat(result.status).isEqualTo(Status.PENDING)
       verify(leaveRequestRepository).save(any<LeaveRequest>())
+    }
+  }
+
+  @Nested
+  @DisplayName("deleteRequest()")
+  inner class DeleteRequest {
+
+    @Test
+    fun `should delete a pending request owned by the user`() {
+      whenever(leaveRequestRepository.findById(alicePendingRequest.id)).thenReturn(Optional.of(alicePendingRequest))
+
+      service.deleteRequest(alice.id, alicePendingRequest.id)
+
+      verify(leaveRequestRepository).delete(alicePendingRequest)
+    }
+
+    @Test
+    fun `should throw LeaveRequestNotFoundException when request does not exist`() {
+      val unknownId = UUID.randomUUID()
+      whenever(leaveRequestRepository.findById(unknownId)).thenReturn(Optional.empty())
+
+      assertThatThrownBy { service.deleteRequest(alice.id, unknownId) }
+        .isInstanceOf(LeaveRequestNotFoundException::class.java)
+        .hasMessageContaining(unknownId.toString())
+    }
+
+    @Test
+    fun `should throw ForbiddenException when user is not the creator`() {
+      whenever(leaveRequestRepository.findById(alicePendingRequest.id)).thenReturn(Optional.of(alicePendingRequest))
+
+      assertThatThrownBy { service.deleteRequest(bob.id, alicePendingRequest.id) }
+        .isInstanceOf(ForbiddenException::class.java)
+        .hasMessageContaining("your own")
+    }
+
+    @Test
+    fun `should throw ValidationException when request is not pending`() {
+      whenever(leaveRequestRepository.findById(aliceApprovedRequest.id)).thenReturn(Optional.of(aliceApprovedRequest))
+
+      assertThatThrownBy { service.deleteRequest(alice.id, aliceApprovedRequest.id) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("pending")
+    }
+  }
+
+  @Nested
+  @DisplayName("getAssignedRequests()")
+  inner class GetAssignedRequests {
+
+    @Test
+    fun `should return requests assigned to the manager`() {
+      whenever(userRepository.existsById(bob.id)).thenReturn(true)
+      whenever(leaveRequestRepository.findAllByApproverId(bob.id))
+        .thenReturn(listOf(alicePendingRequest, aliceApprovedRequest))
+
+      val results = service.getAssignedRequests(bob.id)
+
+      assertThat(results).hasSize(2)
+      assertThat(results).allMatch { it.approverId == bob.id }
+    }
+
+    @Test
+    fun `should return empty list when manager has no assigned requests`() {
+      whenever(userRepository.existsById(alice.id)).thenReturn(true)
+      whenever(leaveRequestRepository.findAllByApproverId(alice.id)).thenReturn(emptyList())
+
+      val results = service.getAssignedRequests(alice.id)
+
+      assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `should throw UserNotFoundException when user does not exist`() {
+      val unknownId = UUID.randomUUID()
+      whenever(userRepository.existsById(unknownId)).thenReturn(false)
+
+      assertThatThrownBy { service.getAssignedRequests(unknownId) }
+        .isInstanceOf(UserNotFoundException::class.java)
+        .hasMessageContaining(unknownId.toString())
+    }
+  }
+
+  @Nested
+  @DisplayName("decideRequest()")
+  inner class DecideRequest {
+
+    @BeforeEach
+    fun setUp() {
+      whenever(leaveRequestRepository.findById(alicePendingRequest.id)).thenReturn(Optional.of(alicePendingRequest))
+      whenever(userRepository.findById(alice.id)).thenReturn(Optional.of(alice))
+      whenever(leaveRequestRepository.save(any<LeaveRequest>())).thenAnswer { it.arguments[0] }
+    }
+
+    @Test
+    fun `should approve a pending request when manager is the approver`() {
+      val decision = DecisionRequest(status = Status.APPROVED, approverNote = "Enjoy!")
+
+      val result = service.decideRequest(bob.id, alicePendingRequest.id, decision)
+
+      assertThat(result.status).isEqualTo(Status.APPROVED)
+      assertThat(result.approverNote).isEqualTo("Enjoy!")
+      assertThat(result.decisionAt).isNotNull()
+      verify(leaveRequestRepository).save(any<LeaveRequest>())
+    }
+
+    @Test
+    fun `should reject a pending request when manager is the approver`() {
+      val decision = DecisionRequest(status = Status.REJECTED, approverNote = "Team is busy")
+
+      val result = service.decideRequest(bob.id, alicePendingRequest.id, decision)
+
+      assertThat(result.status).isEqualTo(Status.REJECTED)
+      assertThat(result.approverNote).isEqualTo("Team is busy")
+      assertThat(result.decisionAt).isNotNull()
+    }
+
+    @Test
+    fun `should throw ValidationException when decision status is PENDING`() {
+      val decision = DecisionRequest(status = Status.PENDING)
+
+      assertThatThrownBy { service.decideRequest(bob.id, alicePendingRequest.id, decision) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("APPROVED or REJECTED")
+    }
+
+    @Test
+    fun `should throw LeaveRequestNotFoundException when request does not exist`() {
+      val unknownId = UUID.randomUUID()
+      whenever(leaveRequestRepository.findById(unknownId)).thenReturn(Optional.empty())
+
+      val decision = DecisionRequest(status = Status.APPROVED)
+
+      assertThatThrownBy { service.decideRequest(bob.id, unknownId, decision) }
+        .isInstanceOf(LeaveRequestNotFoundException::class.java)
+        .hasMessageContaining(unknownId.toString())
+    }
+
+    @Test
+    fun `should throw ValidationException when request is already decided`() {
+      whenever(leaveRequestRepository.findById(aliceApprovedRequest.id)).thenReturn(Optional.of(aliceApprovedRequest))
+
+      val decision = DecisionRequest(status = Status.REJECTED)
+
+      assertThatThrownBy { service.decideRequest(bob.id, aliceApprovedRequest.id, decision) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("pending")
+    }
+
+    @Test
+    fun `should throw ForbiddenException when user is not the assigned approver`() {
+      val randomUser = UUID.randomUUID()
+      val decision = DecisionRequest(status = Status.APPROVED)
+
+      assertThatThrownBy { service.decideRequest(randomUser, alicePendingRequest.id, decision) }
+        .isInstanceOf(ForbiddenException::class.java)
+        .hasMessageContaining("not the assigned approver")
+    }
+
+    @Test
+    fun `should throw ForbiddenException when user is approver but no longer manager of creator`() {
+      val reassignedAlice = alice.copy(managerId = UUID.randomUUID())
+      whenever(userRepository.findById(alice.id)).thenReturn(Optional.of(reassignedAlice))
+
+      val decision = DecisionRequest(status = Status.APPROVED)
+
+      assertThatThrownBy { service.decideRequest(bob.id, alicePendingRequest.id, decision) }
+        .isInstanceOf(ForbiddenException::class.java)
+        .hasMessageContaining("not the manager")
     }
   }
 }
