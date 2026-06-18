@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16
-    container_name: hmpps-template-kotlin-postgres
+    container_name: annual-leave-apprenticeship-project-api-postgres
     ports:
       - "5432:5432"
     environment:
@@ -10,9 +10,9 @@ services:
     tmpfs:
       - /var/lib/postgresql
 
-  hmpps-template-kotlin:
+  annual-leave-apprenticeship-project-api:
     build: .
-    container_name: hmpps-template-kotlin
+    container_name: annual-leave-apprenticeship-project-api
     depends_on:
       postgres:
         condition: service_started
