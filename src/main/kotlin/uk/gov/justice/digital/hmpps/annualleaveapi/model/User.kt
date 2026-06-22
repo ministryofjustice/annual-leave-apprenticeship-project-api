@@ -13,8 +13,11 @@ data class User(
   @Id
   val id: UUID,
 
-  @Column(nullable = false)
-  val name: String,
+  @Column(name = "first_name", nullable = false)
+  val firstName: String,
+
+  @Column(name = "last_name", nullable = false)
+  val lastName: String,
 
   @Column(nullable = false, unique = true)
   val email: String,
@@ -27,4 +30,7 @@ data class User(
 
   @Column(name = "annual_entitlement", nullable = false)
   val annualEntitlement: Int,
+
+  @Column(name = "is_manager", nullable = false)
+  val isManager: Boolean = false,
 )

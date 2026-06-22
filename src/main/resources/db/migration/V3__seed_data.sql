@@ -1,8 +1,8 @@
-INSERT INTO users (id, name, email, password, manager_id, annual_entitlement) VALUES
-  ('00000000-0000-0000-0000-000000000002', 'Bob Smith', 'bob@example.com', 'password', NULL, 30);
+INSERT INTO users (id, first_name, last_name, email, password, manager_id, annual_entitlement, is_manager) VALUES
+  ('00000000-0000-0000-0000-000000000002', 'Bob', 'Smith', 'bob@example.com', 'password', NULL, 30, true);
 
-INSERT INTO users (id, name, email, password, manager_id, annual_entitlement) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'Alice Johnson', 'alice@example.com', 'password', '00000000-0000-0000-0000-000000000002', 25);
+INSERT INTO users (id, first_name, last_name, email, password, manager_id, annual_entitlement, is_manager) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'Alice', 'Johnson', 'alice@example.com', 'password', '00000000-0000-0000-0000-000000000002', 25, false);
 
 INSERT INTO leave_requests (id, created_at, creator_id, approver_id, start_date, end_date, duration, is_first_day_half_day, is_last_day_half_day, status, creator_note) VALUES
   ('00000000-0000-0000-0000-000000000101', '2026-05-20 10:00:00', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', '2026-06-10', '2026-06-14', 4.5, false, true, 'PENDING', 'Family holiday');

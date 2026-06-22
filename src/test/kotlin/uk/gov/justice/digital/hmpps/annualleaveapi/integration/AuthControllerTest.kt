@@ -13,10 +13,12 @@ class AuthControllerTest : IntegrationTestBase() {
   private val nonExistentUserIdString = "00000000-0000-0000-0000-999999999999"
   private val userAlice = UserResponse(
     id = UUID.fromString("00000000-0000-0000-0000-000000000001"),
-    name = "Alice Johnson",
+    firstName = "Alice",
+    lastName = "Johnson",
     email = "alice@example.com",
     annualEntitlement = 25,
     managerId = UUID.fromString("00000000-0000-0000-0000-000000000002"),
+    isManager = false,
   )
 
   @Nested
@@ -33,7 +35,8 @@ class AuthControllerTest : IntegrationTestBase() {
         .expectStatus().isOk
         .expectBody()
         .jsonPath("$.id").isEqualTo(userAlice.id)
-        .jsonPath("$.name").isEqualTo(userAlice.name)
+        .jsonPath("$.firstName").isEqualTo(userAlice.firstName)
+        .jsonPath("$.lastName").isEqualTo(userAlice.lastName)
         .jsonPath("$.email").isEqualTo(userAlice.email)
         .jsonPath("$.annualEntitlement").isEqualTo(userAlice.annualEntitlement)
     }
@@ -90,7 +93,8 @@ class AuthControllerTest : IntegrationTestBase() {
         .expectStatus().isOk
         .expectBody()
         .jsonPath("$.id").isEqualTo(userAlice.id)
-        .jsonPath("$.name").isEqualTo(userAlice.name)
+        .jsonPath("$.firstName").isEqualTo(userAlice.firstName)
+        .jsonPath("$.lastName").isEqualTo(userAlice.lastName)
         .jsonPath("$.email").isEqualTo(userAlice.email)
         .jsonPath("$.annualEntitlement").isEqualTo(userAlice.annualEntitlement)
     }

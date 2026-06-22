@@ -22,7 +22,8 @@ class AuthServiceTest {
 
   private val alice = User(
     id = UUID.fromString("00000000-0000-0000-0000-000000000001"),
-    name = "Alice Johnson",
+    firstName = "Alice",
+    lastName = "Johnson",
     email = "alice@example.com",
     password = "password",
     managerId = UUID.fromString("00000000-0000-0000-0000-000000000002"),
@@ -40,7 +41,8 @@ class AuthServiceTest {
       val result = service.login(alice.email, alice.password)
 
       assertThat(result.id).isEqualTo(alice.id)
-      assertThat(result.name).isEqualTo(alice.name)
+      assertThat(result.firstName).isEqualTo(alice.firstName)
+      assertThat(result.lastName).isEqualTo(alice.lastName)
       assertThat(result.email).isEqualTo(alice.email)
       assertThat(result.managerId).isEqualTo(alice.managerId)
       assertThat(result.annualEntitlement).isEqualTo(alice.annualEntitlement)
@@ -76,7 +78,8 @@ class AuthServiceTest {
       val result = service.getUserById(alice.id)
 
       assertThat(result.id).isEqualTo(alice.id)
-      assertThat(result.name).isEqualTo(alice.name)
+      assertThat(result.firstName).isEqualTo(alice.firstName)
+      assertThat(result.lastName).isEqualTo(alice.lastName)
       assertThat(result.email).isEqualTo(alice.email)
       assertThat(result.managerId).isEqualTo(alice.managerId)
       assertThat(result.annualEntitlement).isEqualTo(alice.annualEntitlement)

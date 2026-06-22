@@ -34,9 +34,11 @@ class AuthService(
 
   private fun toUserResponse(user: User): UserResponse = UserResponse(
     id = user.id,
-    name = user.name,
+    firstName = user.firstName,
+    lastName = user.lastName,
     email = user.email,
     managerId = user.managerId,
     annualEntitlement = user.annualEntitlement,
+    isManager = user.isManager,
   )
 }

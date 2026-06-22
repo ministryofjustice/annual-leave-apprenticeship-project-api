@@ -34,7 +34,8 @@ class LeaveRequestServiceTest {
 
   private val alice = User(
     id = UUID.fromString("00000000-0000-0000-0000-000000000001"),
-    name = "Alice Johnson",
+    firstName = "Alice",
+    lastName = "Johnson",
     email = "alice@example.com",
     password = "password",
     managerId = UUID.fromString("00000000-0000-0000-0000-000000000002"),
@@ -43,7 +44,8 @@ class LeaveRequestServiceTest {
 
   private val bob = User(
     id = UUID.fromString("00000000-0000-0000-0000-000000000002"),
-    name = "Bob Smith",
+    firstName = "Bob",
+    lastName = "Smith",
     email = "bob@example.com",
     password = "password",
     managerId = null,
