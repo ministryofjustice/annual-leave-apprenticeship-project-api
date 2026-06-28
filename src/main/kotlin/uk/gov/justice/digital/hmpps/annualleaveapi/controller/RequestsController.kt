@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController
 import uk.gov.justice.digital.hmpps.annualleaveapi.config.ErrorResponse
 import uk.gov.justice.digital.hmpps.annualleaveapi.controller.request.CreateLeaveRequestBody
 import uk.gov.justice.digital.hmpps.annualleaveapi.controller.request.DecisionRequest
+import uk.gov.justice.digital.hmpps.annualleaveapi.controller.response.AssignedLeaveRequestItem
 import uk.gov.justice.digital.hmpps.annualleaveapi.controller.response.LeaveRequestResponse
 import uk.gov.justice.digital.hmpps.annualleaveapi.model.LeaveRequest
 import uk.gov.justice.digital.hmpps.annualleaveapi.service.LeaveRequestService
@@ -132,7 +133,7 @@ class RequestsController(
       ApiResponse(
         responseCode = "200",
         description = "Assigned requests found",
-        content = [Content(schema = Schema(implementation = LeaveRequestResponse::class))],
+        content = [Content(schema = Schema(implementation = AssignedLeaveRequestItem::class))],
       ),
       ApiResponse(
         responseCode = "400",
@@ -151,7 +152,7 @@ class RequestsController(
       ),
     ],
   )
-  fun getAssignedRequests(@RequestHeader("X-User-Id") userId: UUID): LeaveRequestResponse = LeaveRequestResponse(userRequests = leaveRequestService.getAssignedRequests(userId))
+  fun getAssignedRequests(@RequestHeader("X-User-Id") userId: UUID): List<AssignedLeaveRequestItem> = leaveRequestService.getAssignedRequests(userId)
 
   @PatchMapping("/assigned/{id}")
   @Operation(description = "Approve or reject an assigned leave request")

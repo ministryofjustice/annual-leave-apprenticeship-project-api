@@ -286,8 +286,9 @@ class RequestsControllerTest : IntegrationTestBase() {
         .exchange()
         .expectStatus().isOk
         .expectBody()
-        .jsonPath("$.userRequests.length()").isEqualTo(2)
-        .jsonPath("$.userRequests[0].approverId").isEqualTo(bobId)
+        .jsonPath("$.length()").isEqualTo(2)
+        .jsonPath("$[0].approverId").isEqualTo(bobId)
+        .jsonPath("$[0].creatorName").isEqualTo("Alice Johnson")
     }
 
     @Test
@@ -298,7 +299,7 @@ class RequestsControllerTest : IntegrationTestBase() {
         .exchange()
         .expectStatus().isOk
         .expectBody()
-        .jsonPath("$.userRequests.length()").isEqualTo(0)
+        .jsonPath("$.length()").isEqualTo(0)
     }
 
     @Test

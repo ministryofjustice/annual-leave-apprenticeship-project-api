@@ -433,11 +433,13 @@ class LeaveRequestServiceTest {
       whenever(userRepository.existsById(bob.id)).thenReturn(true)
       whenever(leaveRequestRepository.findAllByApproverId(bob.id))
         .thenReturn(listOf(alicePendingRequest, aliceApprovedRequest))
+      whenever(userRepository.findById(alice.id)).thenReturn(Optional.of(alice))
 
       val results = service.getAssignedRequests(bob.id)
 
       assertThat(results).hasSize(2)
       assertThat(results).allMatch { it.approverId == bob.id }
+      assertThat(results).allMatch { it.creatorName == "Alice Johnson" }
     }
 
     @Test

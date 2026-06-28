@@ -7,6 +7,7 @@ import uk.gov.justice.digital.hmpps.annualleaveapi.config.LeaveRequestNotFoundEx
 import uk.gov.justice.digital.hmpps.annualleaveapi.config.UserNotFoundException
 import uk.gov.justice.digital.hmpps.annualleaveapi.controller.request.CreateLeaveRequestBody
 import uk.gov.justice.digital.hmpps.annualleaveapi.controller.request.DecisionRequest
+import uk.gov.justice.digital.hmpps.annualleaveapi.controller.response.AssignedLeaveRequestItem
 import uk.gov.justice.digital.hmpps.annualleaveapi.controller.response.BalanceResponse
 import uk.gov.justice.digital.hmpps.annualleaveapi.model.LeaveRequest
 import uk.gov.justice.digital.hmpps.annualleaveapi.model.Status
@@ -118,13 +119,39 @@ class LeaveRequestService(
     leaveRequestRepository.delete(request)
   }
 
-  fun getAssignedRequests(managerId: UUID): List<LeaveRequest> {
+  fun getAssignedRequests(managerId: UUID): List<AssignedLeaveRequestItem> {
     if (!userRepository.existsById(managerId)) {
       throw UserNotFoundException(managerId)
     }
 
-    return leaveRequestRepository.findAllByApproverId(managerId)
+    val requests = leaveRequestRepository.findAllByApproverId(managerId)
+
+    return requests.map { toAssignedLeaveRequestItem(it) }
   }
+
+  private fun getCreatorName(request: LeaveRequest): String {
+    val creator = userRepository.findById(request.creatorId)
+      .orElseThrow { UserNotFoundException(request.creatorId) }
+
+    return "${creator.firstName} ${creator.lastName}"
+  }
+
+  private fun toAssignedLeaveRequestItem(request: LeaveRequest): AssignedLeaveRequestItem = AssignedLeaveRequestItem(
+    id = request.id,
+    createdAt = request.createdAt,
+    decisionAt = request.decisionAt,
+    creatorId = request.creatorId,
+    creatorName = getCreatorName(request),
+    approverId = request.approverId,
+    startDate = request.startDate,
+    endDate = request.endDate,
+    duration = request.duration,
+    isFirstDayHalfDay = request.isFirstDayHalfDay,
+    isLastDayHalfDay = request.isLastDayHalfDay,
+    status = request.status,
+    creatorNote = request.creatorNote,
+    approverNote = request.approverNote,
+  )
 
   fun decideRequest(managerId: UUID, requestId: UUID, decision: DecisionRequest): LeaveRequest {
     if (decision.status == Status.PENDING) {
