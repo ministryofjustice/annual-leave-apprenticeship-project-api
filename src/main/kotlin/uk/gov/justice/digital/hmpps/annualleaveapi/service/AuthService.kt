@@ -25,7 +25,17 @@ class AuthService(
     return toUserResponse(user)
   }
 
-  fun getUserById(userId: UUID): UserResponse {
+  private fun getManagerName(user: User): String {
+    val managerId = user.managerId ?: return ""
+    val manager = userRepository.findById(managerId)
+      .orElseThrow { (UserNotFoundException(user.managerId)) }
+    return manager.firstName + " " + manager.lastName
+  }
+
+  fun getUserById(userId: UUID?): UserResponse {
+    if (userId == null) {
+      throw UserNotRegisteredException()
+    }
     val user = userRepository.findById(userId)
       .orElseThrow { UserNotFoundException(userId) }
 
@@ -38,6 +48,7 @@ class AuthService(
     lastName = user.lastName,
     email = user.email,
     managerId = user.managerId,
+    managerName = getManagerName(user),
     annualEntitlement = user.annualEntitlement,
     isManager = user.isManager,
   )

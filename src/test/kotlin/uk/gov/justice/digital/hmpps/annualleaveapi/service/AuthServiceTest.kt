@@ -30,6 +30,16 @@ class AuthServiceTest {
     annualEntitlement = 25,
   )
 
+  private val bob = User(
+    id = UUID.fromString("00000000-0000-0000-0000-000000000002"),
+    firstName = "Bob",
+    lastName = "Smith",
+    email = "bob@example.com",
+    password = "password",
+    managerId = null,
+    annualEntitlement = 55,
+  )
+
   @Nested
   @DisplayName("login()")
   inner class Login {
@@ -37,6 +47,7 @@ class AuthServiceTest {
     @Test
     fun `should return user details for valid credentials`() {
       whenever(userRepository.findByEmail(alice.email)).thenReturn(alice)
+      whenever(userRepository.findById(bob.id)).thenReturn(Optional.of(bob))
 
       val result = service.login(alice.email, alice.password)
 
@@ -45,7 +56,17 @@ class AuthServiceTest {
       assertThat(result.lastName).isEqualTo(alice.lastName)
       assertThat(result.email).isEqualTo(alice.email)
       assertThat(result.managerId).isEqualTo(alice.managerId)
+      assertThat(result.managerName).isEqualTo("Bob Smith")
       assertThat(result.annualEntitlement).isEqualTo(alice.annualEntitlement)
+    }
+
+    @Test
+    fun `should return empty manager name when user has no manager`() {
+      whenever(userRepository.findByEmail(bob.email)).thenReturn(bob)
+
+      val result = service.login(bob.email, bob.password)
+
+      assertThat(result.managerName).isEqualTo("")
     }
 
     @Test
@@ -74,6 +95,7 @@ class AuthServiceTest {
     @Test
     fun `should return user details when user exists`() {
       whenever(userRepository.findById(alice.id)).thenReturn(Optional.of(alice))
+      whenever(userRepository.findById(bob.id)).thenReturn(Optional.of(bob))
 
       val result = service.getUserById(alice.id)
 
@@ -82,6 +104,7 @@ class AuthServiceTest {
       assertThat(result.lastName).isEqualTo(alice.lastName)
       assertThat(result.email).isEqualTo(alice.email)
       assertThat(result.managerId).isEqualTo(alice.managerId)
+      assertThat(result.managerName).isEqualTo("Bob Smith")
       assertThat(result.annualEntitlement).isEqualTo(alice.annualEntitlement)
     }
 

@@ -34,7 +34,7 @@ data class LeaveRequest(
   @Column(name = "end_date", nullable = false)
   val endDate: LocalDate,
 
-  @Column(nullable = false)
+  @Column(name = "duration", nullable = false)
   val duration: Double,
 
   @Column(name = "is_first_day_half_day", nullable = false)

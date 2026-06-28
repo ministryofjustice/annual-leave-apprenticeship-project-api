@@ -8,6 +8,7 @@ data class UserResponse(
   val lastName: String,
   val email: String,
   val managerId: UUID?,
+  val managerName: String?,
   val annualEntitlement: Int,
   val isManager: Boolean,
 )
