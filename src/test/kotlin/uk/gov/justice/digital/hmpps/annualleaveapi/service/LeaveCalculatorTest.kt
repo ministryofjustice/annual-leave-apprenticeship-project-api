@@ -110,5 +110,44 @@ class LeaveCalculatorTest {
 
       assertThat(result).isEqualTo(0.0)
     }
+
+    @Test
+    fun `should ignore half day on first day when it falls on a weekend`() {
+      // Sat 18 Jul (half day) - Mon 20 Jul 2026 = 1 business day (Mon only)
+      val result = LeaveCalculator.calculateDuration(
+        startDate = LocalDate.of(2026, 7, 18),
+        endDate = LocalDate.of(2026, 7, 20),
+        isFirstDayHalfDay = true,
+        isLastDayHalfDay = false,
+      )
+
+      assertThat(result).isEqualTo(1.0)
+    }
+
+    @Test
+    fun `should ignore half day on last day when it falls on a weekend`() {
+      // Fri 17 Jul - Sun 19 Jul 2026 = 1 business day (Fri only)
+      val result = LeaveCalculator.calculateDuration(
+        startDate = LocalDate.of(2026, 7, 17),
+        endDate = LocalDate.of(2026, 7, 19),
+        isFirstDayHalfDay = false,
+        isLastDayHalfDay = true,
+      )
+
+      assertThat(result).isEqualTo(1.0)
+    }
+
+    @Test
+    fun `should ignore both half days when both fall on weekends`() {
+      // Sat 18 Jul - Sun 26 Jul 2026 = 5 business days (Mon-Fri)
+      val result = LeaveCalculator.calculateDuration(
+        startDate = LocalDate.of(2026, 7, 18),
+        endDate = LocalDate.of(2026, 7, 26),
+        isFirstDayHalfDay = true,
+        isLastDayHalfDay = true,
+      )
+
+      assertThat(result).isEqualTo(5.0)
+    }
   }
 }
