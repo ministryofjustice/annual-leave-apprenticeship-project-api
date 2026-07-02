@@ -335,7 +335,7 @@ class RequestsControllerTest : IntegrationTestBase() {
           """
           {
             "startDate": "2026-12-01",
-            "endDate": "2026-12-05",
+            "endDate": "2026-12-04",
             "isFirstDayHalfDay": false,
             "isLastDayHalfDay": false
           }

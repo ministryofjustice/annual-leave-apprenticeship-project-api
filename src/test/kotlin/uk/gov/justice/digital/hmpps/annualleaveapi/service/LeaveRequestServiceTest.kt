@@ -58,8 +58,8 @@ class LeaveRequestServiceTest {
     creatorId = alice.id,
     approverId = bob.id,
     startDate = LocalDate.of(2026, 6, 10),
-    endDate = LocalDate.of(2026, 6, 14),
-    duration = 4.5,
+    endDate = LocalDate.of(2026, 6, 12),
+    duration = 2.5,
     isFirstDayHalfDay = false,
     isLastDayHalfDay = true,
     status = Status.PENDING,
@@ -93,9 +93,9 @@ class LeaveRequestServiceTest {
       val result = service.getBalance(alice.id)
 
       assertThat(result.annualEntitlement).isEqualTo(25)
-      assertThat(result.pendingDays).isEqualTo(4.5)
+      assertThat(result.pendingDays).isEqualTo(2.5)
       assertThat(result.approvedDays).isEqualTo(3.0)
-      assertThat(result.availableBalance).isEqualTo(17.5)
+      assertThat(result.availableBalance).isEqualTo(19.5)
       assertThat(result.actualBalance).isEqualTo(22.0)
     }
 
@@ -238,17 +238,51 @@ class LeaveRequestServiceTest {
     }
 
     @Test
-    fun `should throw ValidationException when dates fall entirely on a weekend`() {
-      val weekendOnly = request.copy(
+    fun `should throw ValidationException when start date falls on a Saturday`() {
+      val saturdayStart = request.copy(
         startDate = LocalDate.of(2026, 8, 8),
-        endDate = LocalDate.of(2026, 8, 9),
-        isFirstDayHalfDay = false,
-        isLastDayHalfDay = false,
+        endDate = LocalDate.of(2026, 8, 10),
       )
 
-      assertThatThrownBy { service.createRequest(alice.id, weekendOnly) }
+      assertThatThrownBy { service.createRequest(alice.id, saturdayStart) }
         .isInstanceOf(ValidationException::class.java)
-        .hasMessageContaining("duration must be greater than 0")
+        .hasMessageContaining("Start date must not fall on a weekend")
+    }
+
+    @Test
+    fun `should throw ValidationException when start date falls on a Sunday`() {
+      val sundayStart = request.copy(
+        startDate = LocalDate.of(2026, 8, 9),
+        endDate = LocalDate.of(2026, 8, 10),
+      )
+
+      assertThatThrownBy { service.createRequest(alice.id, sundayStart) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("Start date must not fall on a weekend")
+    }
+
+    @Test
+    fun `should throw ValidationException when end date falls on a Saturday`() {
+      val saturdayEnd = request.copy(
+        startDate = LocalDate.of(2026, 8, 3),
+        endDate = LocalDate.of(2026, 8, 8),
+      )
+
+      assertThatThrownBy { service.createRequest(alice.id, saturdayEnd) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("End date must not fall on a weekend")
+    }
+
+    @Test
+    fun `should throw ValidationException when end date falls on a Sunday`() {
+      val sundayEnd = request.copy(
+        startDate = LocalDate.of(2026, 8, 3),
+        endDate = LocalDate.of(2026, 8, 9),
+      )
+
+      assertThatThrownBy { service.createRequest(alice.id, sundayEnd) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("End date must not fall on a weekend")
     }
 
     @Test
@@ -318,7 +352,7 @@ class LeaveRequestServiceTest {
 
       val overlapping = request.copy(
         startDate = LocalDate.of(2026, 6, 10),
-        endDate = LocalDate.of(2026, 6, 14),
+        endDate = LocalDate.of(2026, 6, 12),
       )
 
       assertThatThrownBy { service.createRequest(alice.id, overlapping) }

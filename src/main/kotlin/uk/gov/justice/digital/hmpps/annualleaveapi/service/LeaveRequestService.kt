@@ -13,6 +13,7 @@ import uk.gov.justice.digital.hmpps.annualleaveapi.model.LeaveRequest
 import uk.gov.justice.digital.hmpps.annualleaveapi.model.Status
 import uk.gov.justice.digital.hmpps.annualleaveapi.repository.LeaveRequestRepository
 import uk.gov.justice.digital.hmpps.annualleaveapi.repository.UserRepository
+import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -55,6 +56,16 @@ class LeaveRequestService(
 
     if (request.endDate.isBefore(request.startDate)) {
       throw ValidationException("End date must not be before start date")
+    }
+
+    val weekends = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+
+    if (request.startDate.dayOfWeek in weekends) {
+      throw ValidationException("Start date must not fall on a weekend")
+    }
+
+    if (request.endDate.dayOfWeek in weekends) {
+      throw ValidationException("End date must not fall on a weekend")
     }
 
     val duration = LeaveCalculator.calculateDuration(
