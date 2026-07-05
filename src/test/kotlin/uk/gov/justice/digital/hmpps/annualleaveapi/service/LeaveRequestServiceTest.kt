@@ -69,6 +69,7 @@ class LeaveRequestServiceTest {
   private val aliceApprovedRequest = LeaveRequest(
     id = UUID.fromString("00000000-0000-0000-0000-000000000102"),
     createdAt = LocalDateTime.of(2026, 5, 15, 10, 0),
+    decisionAt = LocalDateTime.of(2026, 5, 16, 9, 0),
     creatorId = alice.id,
     approverId = bob.id,
     startDate = LocalDate.of(2026, 7, 1),
@@ -583,6 +584,66 @@ class LeaveRequestServiceTest {
       assertThatThrownBy { service.decideRequest(bob.id, alicePendingRequest.id, decision) }
         .isInstanceOf(ForbiddenException::class.java)
         .hasMessageContaining("not the manager")
+    }
+  }
+
+  @Nested
+  @DisplayName("markDecisionSeen()")
+  inner class MarkDecisionSeen {
+
+    @BeforeEach
+    fun setUp() {
+      whenever(leaveRequestRepository.save(any<LeaveRequest>())).thenAnswer { it.arguments[0] }
+    }
+
+    @Test
+    fun `should set decisionSeenAt when request has a decision`() {
+      whenever(leaveRequestRepository.findById(aliceApprovedRequest.id)).thenReturn(Optional.of(aliceApprovedRequest))
+
+      val result = service.markDecisionSeen(alice.id, aliceApprovedRequest.id)
+
+      assertThat(result.decisionSeenAt).isNotNull()
+      verify(leaveRequestRepository).save(any<LeaveRequest>())
+    }
+
+    @Test
+    fun `should throw ValidationException when decision was already seen`() {
+      val alreadySeen = aliceApprovedRequest.copy(
+        decisionSeenAt = LocalDateTime.of(2026, 5, 17, 8, 0),
+      )
+      whenever(leaveRequestRepository.findById(alreadySeen.id)).thenReturn(Optional.of(alreadySeen))
+
+      assertThatThrownBy { service.markDecisionSeen(alice.id, alreadySeen.id) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("Decision already seen on")
+    }
+
+    @Test
+    fun `should throw ValidationException when request has no decision`() {
+      whenever(leaveRequestRepository.findById(alicePendingRequest.id)).thenReturn(Optional.of(alicePendingRequest))
+
+      assertThatThrownBy { service.markDecisionSeen(alice.id, alicePendingRequest.id) }
+        .isInstanceOf(ValidationException::class.java)
+        .hasMessageContaining("No decision has been made")
+    }
+
+    @Test
+    fun `should throw ForbiddenException when user is not the creator`() {
+      whenever(leaveRequestRepository.findById(aliceApprovedRequest.id)).thenReturn(Optional.of(aliceApprovedRequest))
+
+      assertThatThrownBy { service.markDecisionSeen(bob.id, aliceApprovedRequest.id) }
+        .isInstanceOf(ForbiddenException::class.java)
+        .hasMessageContaining("your own")
+    }
+
+    @Test
+    fun `should throw LeaveRequestNotFoundException when request does not exist`() {
+      val unknownId = UUID.randomUUID()
+      whenever(leaveRequestRepository.findById(unknownId)).thenReturn(Optional.empty())
+
+      assertThatThrownBy { service.markDecisionSeen(alice.id, unknownId) }
+        .isInstanceOf(LeaveRequestNotFoundException::class.java)
+        .hasMessageContaining(unknownId.toString())
     }
   }
 }

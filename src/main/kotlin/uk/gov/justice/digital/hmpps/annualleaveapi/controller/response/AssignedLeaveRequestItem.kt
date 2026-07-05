@@ -20,4 +20,5 @@ data class AssignedLeaveRequestItem(
   val status: Status,
   val creatorNote: String?,
   val approverNote: String?,
+  val decisionSeenAt: LocalDateTime?,
 )

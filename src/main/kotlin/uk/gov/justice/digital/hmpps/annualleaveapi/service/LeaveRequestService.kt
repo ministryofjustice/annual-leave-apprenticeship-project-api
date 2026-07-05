@@ -162,6 +162,7 @@ class LeaveRequestService(
     status = request.status,
     creatorNote = request.creatorNote,
     approverNote = request.approverNote,
+    decisionSeenAt = request.decisionSeenAt,
   )
 
   fun decideRequest(managerId: UUID, requestId: UUID, decision: DecisionRequest): LeaveRequest {
@@ -192,6 +193,27 @@ class LeaveRequestService(
       decisionAt = LocalDateTime.now(),
       approverNote = decision.approverNote,
     )
+
+    return leaveRequestRepository.save(updatedRequest)
+  }
+
+  fun markDecisionSeen(userId: UUID, requestId: UUID): LeaveRequest {
+    val request = leaveRequestRepository.findById(requestId)
+      .orElseThrow { LeaveRequestNotFoundException(requestId) }
+
+    if (request.creatorId != userId) {
+      throw ForbiddenException("You can only mark your own leave requests as seen")
+    }
+
+    if (request.decisionAt == null) {
+      throw ValidationException("No decision has been made on this request")
+    }
+
+    if (request.decisionSeenAt != null) {
+      throw ValidationException("Decision already seen on ${request.decisionSeenAt}")
+    }
+
+    val updatedRequest = request.copy(decisionSeenAt = LocalDateTime.now())
 
     return leaveRequestRepository.save(updatedRequest)
   }

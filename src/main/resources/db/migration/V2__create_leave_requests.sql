@@ -12,6 +12,7 @@ CREATE TABLE leave_requests (
   status VARCHAR(20) NOT NULL,
   creator_note TEXT,
   approver_note TEXT,
+  decision_seen_at TIMESTAMP,
   CONSTRAINT fk_leave_requests_creator FOREIGN KEY (creator_id) REFERENCES users(id),
   CONSTRAINT fk_leave_requests_approver FOREIGN KEY (approver_id) REFERENCES users(id)
 );

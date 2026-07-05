@@ -52,4 +52,7 @@ data class LeaveRequest(
 
   @Column(name = "approver_note")
   val approverNote: String? = null,
+
+  @Column(name = "decision_seen_at")
+  val decisionSeenAt: LocalDateTime? = null,
 )

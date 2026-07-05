@@ -190,4 +190,40 @@ class RequestsController(
     @PathVariable id: UUID,
     @RequestBody decision: DecisionRequest,
   ): LeaveRequest = leaveRequestService.decideRequest(userId, id, decision)
+
+  @PatchMapping("/mark-decision-seen/{id}")
+  @Operation(description = "Mark the decision on a leave request as seen by the user")
+  @ApiResponses(
+    value = [
+      ApiResponse(
+        responseCode = "200",
+        description = "Decision marked as seen",
+        content = [Content(schema = Schema(implementation = LeaveRequest::class))],
+      ),
+      ApiResponse(
+        responseCode = "400",
+        description = "Bad request",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+      ),
+      ApiResponse(
+        responseCode = "403",
+        description = "Forbidden",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+      ),
+      ApiResponse(
+        responseCode = "404",
+        description = "Leave request not found",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+      ),
+      ApiResponse(
+        responseCode = "500",
+        description = "Unexpected error",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+      ),
+    ],
+  )
+  fun markDecisionSeen(
+    @RequestHeader("X-User-Id") userId: UUID,
+    @PathVariable id: UUID,
+  ): LeaveRequest = leaveRequestService.markDecisionSeen(userId, id)
 }
