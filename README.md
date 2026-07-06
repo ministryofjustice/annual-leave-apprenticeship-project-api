@@ -19,16 +19,17 @@ This approach is intentional for prototyping purposes.
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/auth/login` | Log in with email and password |
-| GET | `/auth/me` | Get current user details |
-| GET | `/requests` | Get all leave requests for the current user |
-| POST | `/requests` | Submit a new leave request |
-| DELETE | `/requests/{id}` | Delete a pending leave request |
-| GET | `/requests/assigned` | Get all requests assigned to the user as approver |
-| PATCH | `/requests/assigned/{id}` | Approve or reject an assigned leave request |
-| GET | `/balance` | Get the current user's leave balance |
+| Method | Path | Description                                              |
+|--------|------|----------------------------------------------------------|
+| POST | `/auth/login` | Log in with email and password                           |
+| GET | `/auth/me` | Get current user details                                 |
+| GET | `/requests` | Get all leave requests for the current user              |
+| POST | `/requests` | Submit a new leave request                               |
+| DELETE | `/requests/{id}` | Delete a pending leave request                           |
+| GET | `/requests/assigned` | Get all requests assigned to the user as approver        |
+| PATCH | `/requests/assigned/{id}` | Approve or reject an assigned leave request              |
+| PATCH | `/requests/mark-decision-seen/:id` | Mark the decision on a leave request as seen by the user |
+| GET | `/balance` | Get the current user's leave balance                     |
 
 All endpoints (except `/auth/login`) require an `X-User-Id` header with a valid UUID.
 
