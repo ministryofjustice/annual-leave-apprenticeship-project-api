@@ -38,6 +38,12 @@ generic-service:
     annual-leave-apprenticeship-project-api-application-insights:
       APPLICATIONINSIGHTS_CONNECTION_STRING: "APPLICATIONINSIGHTS_CONNECTION_STRING"
 
+    annual-leave-apprenticeship-project-rds-instance:
+      APP_DB_ENDPOINT: rds_instance_endpoint
+      APP_DB_NAME: database_name
+      APP_DB_USERNAME: database_username
+      APP_DB_PASSWORD: database_password
+
   allowlist:
     groups:
       - internal
