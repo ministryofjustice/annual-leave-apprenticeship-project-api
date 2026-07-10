@@ -1,156 +1,114 @@
-# hmpps-template-kotlin
+# Annual leave API (prototype for apprenticeship project)
 
-[![Ministry of Justice Repository Compliance Badge](https://github-community.service.justice.gov.uk/repository-standards/api/hmpps-template-kotlin/badge?style=flat)](https://github-community.service.justice.gov.uk/repository-standards/hmpps-template-kotlin)
-[![Docker Repository on ghcr](https://img.shields.io/badge/ghcr.io-repository-2496ED.svg?logo=docker)](https://ghcr.io/ministryofjustice/hmpps-template-kotlin)
-[![API docs](https://img.shields.io/badge/API_docs_-view-85EA2D.svg?logo=swagger)](https://template-kotlin-dev.hmpps.service.justice.gov.uk/swagger-ui/index.html)
+### LOCAL API DOCS:
+[![API docs](https://img.shields.io/badge/API_docs_-view-85EA2D.svg?logo=swagger)](http://localhost:8080/swagger-ui/index.html)
 
-Template github repo used for new Kotlin based projects.
+A prototype REST API for managing employee annual leave requests, built with Kotlin and Spring Boot.
 
-# Instructions
+Employees can submit, view, and cancel leave requests. Managers can view requests assigned to them and approve or reject them. The API tracks leave balances, accounting for both pending and approved requests against each employee's annual entitlement.
 
-If this is a HMPPS project then the project will be created as part of bootstrapping -
-see [hmpps-project-bootstrap](https://github.com/ministryofjustice/hmpps-project-bootstrap). You are able to specify a
-template application using the `github_template_repo` attribute to clone without the need to manually do this yourself
-within GitHub.
+## Authentication
 
-This project is community managed by the mojdt `#kotlin-dev` slack channel.
-Please raise any questions or queries there. Contributions welcome!
+This is a prototype application with simplified authentication. There is no JWT, OAuth, or session-based auth. Instead:
 
-Our security policy is located [here](https://github.com/ministryofjustice/hmpps-template-kotlin/security/policy).
+- **Login** (`POST /auth/login`) validates email and password against the database with plaintext comparison (no hashing).
+- After login, the client receives the user's UUID and must pass it as an `X-User-Id` header on all subsequent requests.
+- There is no token expiry, session management, or middleware-level authentication.
 
-Documentation to create new service is located [here](https://tech-docs.hmpps.service.justice.gov.uk/creating-new-services/).
+This approach is intentional for prototyping purposes.
 
-## Creating a Cloud Platform namespace
+## API Endpoints
 
-When deploying to a new namespace, you may wish to use the
-[templates project namespace](https://github.com/ministryofjustice/cloud-platform-environments/tree/main/namespaces/live.cloud-platform.service.justice.gov.uk/hmpps-templates-dev)
-as the basis for your new namespace. This namespace contains both the kotlin and typescript template projects,
-which is the usual way that projects are setup.
+| Method | Path | Description                                              |
+|--------|------|----------------------------------------------------------|
+| POST | `/auth/login` | Log in with email and password                           |
+| GET | `/auth/me` | Get current user details                                 |
+| GET | `/requests` | Get all leave requests for the current user              |
+| POST | `/requests` | Submit a new leave request                               |
+| DELETE | `/requests/{id}` | Delete a pending leave request                           |
+| GET | `/requests/assigned` | Get all requests assigned to the user as approver        |
+| PATCH | `/requests/assigned/{id}` | Approve or reject an assigned leave request              |
+| PATCH | `/requests/mark-decision-seen/:id` | Mark the decision on a leave request as seen by the user |
+| GET | `/balance` | Get the current user's leave balance                     |
 
-Copy this folder and update all the existing namespace references to correspond to the environment to which you're deploying.
+All endpoints (except `/auth/login`) require an `X-User-Id` header with a valid UUID.
 
-If you only need the kotlin configuration then remove all typescript references and remove the elasticache configuration.
+API documentation is available at `/swagger-ui/index.html` when the app is running.
 
-To ensure the correct github teams can approve releases, you will need to make changes to the configuration in `resources/service-account-github` where the appropriate team names will need to be added (based on [lines 98-100](https://github.com/ministryofjustice/cloud-platform-environments/blob/main/namespaces/live.cloud-platform.service.justice.gov.uk/hmpps-templates-dev/resources/serviceaccount-github.tf#L98) and the reference appended to the teams list below [line 112](https://github.com/ministryofjustice/cloud-platform-environments/blob/main/namespaces/live.cloud-platform.service.justice.gov.uk/hmpps-templates-dev/resources/serviceaccount-github.tf#L112)). Note: hmpps-sre is in this list to assist with deployment issues.
+## Tech Stack
 
-Submit a PR to the Cloud Platform team in [#ask-cloud-platform](https://moj.enterprise.slack.com/archives/C57UPMZLY).
-Further instructions from the Cloud Platform team can be found in the [Cloud Platform User Guide](https://user-guide.cloud-platform.service.justice.gov.uk/#cloud-platform-user-guide)
+- Kotlin
+- Spring Boot
+- Spring Data JPA / Hibernate
+- PostgreSQL
+- Flyway (database migrations)
+- Gradle
 
-## Renaming from HMPPS Template Kotlin - github Actions
+## Prerequisites
 
-Once the new repository is deployed. Navigate to the repository in github, and select the `Actions` tab.
-Click the link to `Enable Actions on this repository`.
+- Java 25+
+- Docker (for PostgreSQL)
 
-Find the Action workflow named: `rename-project-create-pr` and click `Run workflow`. This workflow will
-execute the `rename-project.bash` and create Pull Request for you to review. Review the PR and merge.
+## Running Locally
 
-Note: ideally this workflow would run automatically however due to a recent change github Actions are not
-enabled by default on newly created repos. There is no way to enable Actions other then to click the button in the UI.
-If this situation changes we will update this project so that the workflow is triggered during the bootstrap project.
-Further reading: <https://github.community/t/workflow-isnt-enabled-in-repos-generated-from-template/136421>
-
-The script takes six arguments:
-
-### New project name
-
-This should start with `hmpps-` e.g. `hmpps-prison-visits` so that it can be easily distinguished in github from
-other departments projects. Try to avoid using abbreviations so that others can understand easily what your project is.
-
-### Slack channel for release notifications
-
-By default, release notifications are only enabled for production. The circleci configuration can be amended to send
-release notifications for deployments to other environments if required. Note that if the configuration is amended,
-the slack channel should then be amended to your own team's channel as `dps-releases` is strictly for production release
-notifications. If the slack channel is set to something other than `dps-releases`, production release notifications
-will still automatically go to `dps-releases` as well. This is configured by `releases-slack-channel` in
-`.circleci/config.yml`.
-
-### Slack channel for pipeline security notifications
-
-Ths channel should be specific to your team and is for daily / weekly security scanning job results. It is your team's
-responsibility to keep up-to-date with security issues and update your application so that these jobs pass. You will
-only be notified if the jobs fail. The scan results can always be found in circleci for your project. This is
-configured by `alerts-slack-channel` in `.circleci/config.yml`.
-
-### Non production kubernetes alerts
-
-By default Prometheus alerts are created in the application namespaces to monitor your application e.g. if your
-application is crash looping, there are a significant number of errors from the ingress. Since Prometheus runs in
-cloud platform AlertManager needs to be setup first with your channel. Please see
-[Create your own custom alerts](https://user-guide.cloud-platform.service.justice.gov.uk/documentation/monitoring-an-app/how-to-create-alarms.html)
-in the Cloud Platform user guide. Once that is setup then the `custom severity label` can be used for
-`alertSeverity` in the `helm_deploy/values-*.yaml` configuration.
-
-Normally it is worth setting up two separate labels and therefore two separate slack channels - one for your production
-alerts and one for your non-production alerts. Using the same channel can mean that production alerts are sometimes
-lost within non-production issues.
-
-### Production kubernetes alerts
-
-This is the severity label for production, determined by the `custom severity label`. See the above
-[Non production kubernetes alerts section](non-production-kubernetes-alerts) for more information. This is configured in `helm_deploy/values-prod.yaml`.
-
-### Product ID
-
-This is so that we can link a component to a product and thus provide team and product information in the Developer
-Portal. Refer to the developer portal at <https://developer-portal.hmpps.service.justice.gov.uk/products> to find your
-product id. This is configured in `helm_deploy/<project_name>/values.yaml`.
-
-## Manually branding from template app
-
-Run the `rename-project.bash` without any arguments. This will prompt for the six required parameters and create a PR.
-The script requires a recent version of `bash` to be installed, as well as GNU `sed` in the path.
-
-## Common Kotlin patterns
-
-Many patterns have evolved for HMPPS Kotlin applications. Using these patterns provides consistency across our suite of
-Kotlin microservices and allows you to concentrate on building your business needs rather than reinventing the
-technical approach.
-
-Documentation for these patterns can be found in the [HMPPS tech docs](https://tech-docs.hmpps.service.justice.gov.uk/common-kotlin-patterns/).
-If this documentation is incorrect or needs improving please report to [#ask-prisons-digital-sre](https://moj.enterprise.slack.com/archives/C06MWP0UKDE)
-or [raise a PR](https://github.com/ministryofjustice/hmpps-tech-docs).
-
-## Running the application locally
-
-The application comes with a `dev` spring profile that includes default settings for running locally. This is not
-necessary when deploying to kubernetes as these values are included in the helm configuration templates -
-e.g. `values-dev.yaml`.
-
-There is also a `docker-compose.yml` that can be used to run a local instance of the template in docker and also an
-instance of HMPPS Auth (required if your service calls out to other services using a token).
+### 1. Start PostgreSQL
 
 ```bash
-docker compose pull && docker compose up
+docker compose up postgres
 ```
 
-will run the application and HMPPS Auth within a local docker instance.
+This starts a PostgreSQL instance on `localhost:5432` with user `root`, password `dev`.
 
-### Running the application in Intellij
+### 2. Run the application
 
 ```bash
-docker compose pull && docker compose up --scale hmpps-template-kotlin=0
+./gradlew bootRun
 ```
 
-will just start a docker instance of HMPPS Auth. The application should then be started with a `dev` active profile
-in Intellij.
+The API will be available at `http://localhost:8080`.
 
-### Building and running the docker image locally
+### Running in IntelliJ
 
-The `Dockerfile` relies on the application being built first. Steps to build the docker image:
-1. Build the jar files
+Start PostgreSQL with Docker as above, then run the `AnnualLeaveApi.kt` main class with the `dev` Spring profile active.
+
+## Useful Gradle Commands
+
+| Command | Description |
+|---------|-------------|
+| `./gradlew bootRun` | Run the application |
+| `./gradlew test` | Run all tests |
+| `./gradlew check` | Run all tests, linting, and verification tasks |
+| `./gradlew build` | Full build (compile, test, check, assemble jar) |
+| `./gradlew clean build` | Clean and do a full build from scratch |
+| `./gradlew clean assemble` | Build the jar without running tests |
+| `./gradlew ktlintFormat` | Auto-format code to match Kotlin style rules |
+| `./gradlew ktlintCheck` | Check code formatting without fixing |
+
+## Running Everything in Docker
+
+To run both the database and the application in Docker:
+
+```bash
+docker compose up
 ```
-./gradlew clean assemble
+
+## Project Structure
+
 ```
-2. Copy the jar files to the base directory so that the docker build can find them
+src/main/kotlin/uk/gov/justice/digital/hmpps/annualleaveapi/
+├── config/         # CORS, exception handling, OpenAPI config
+├── controller/     # REST controllers
+│   ├── request/    # Request DTOs
+│   └── response/   # Response DTOs
+├── model/          # JPA entities (User, LeaveRequest, Status)
+├── repository/     # Spring Data JPA repositories
+├── service/        # Business logic
+└── AnnualLeaveApi.kt
 ```
-cp build/libs/*.jar .
-```
-3. Build the docker image with required arguments
-```
-docker build --build-arg GIT_REF=21345 --build-arg GIT_BRANCH=bob --build-arg BUILD_NUMBER=$(date '+%Y-%m-%d') .
-```
-4. Run the docker image, setting the auth url so that it starts up
-```
-docker run -e HMPPS_AUTH_URL="https://sign-in-dev.hmpps.service.justice.gov.uk/auth" <sha from step 3>
-```
+
+## Database
+
+The application uses Flyway for database migrations. Migration scripts are in `src/main/resources/db/migration/`.
+
+- **dev/local:** PostgreSQL
+- **Tests:** H2 in-memory database

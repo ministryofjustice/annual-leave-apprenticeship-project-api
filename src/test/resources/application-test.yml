@@ -1,12 +1,17 @@
 server:
   shutdown: immediate
 
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
 management.endpoint:
   health.cache.time-to-live: 0
   info.cache.time-to-live: 0
-
-hmpps-auth:
-  url: "http://localhost:8090/auth"
 
 springdoc:
   api-docs:

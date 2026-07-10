@@ -1,0 +1,220 @@
+package uk.gov.justice.digital.hmpps.annualleaveapi.service
+
+import jakarta.validation.ValidationException
+import org.springframework.stereotype.Service
+import uk.gov.justice.digital.hmpps.annualleaveapi.config.ForbiddenException
+import uk.gov.justice.digital.hmpps.annualleaveapi.config.LeaveRequestNotFoundException
+import uk.gov.justice.digital.hmpps.annualleaveapi.config.UserNotFoundException
+import uk.gov.justice.digital.hmpps.annualleaveapi.controller.request.CreateLeaveRequestBody
+import uk.gov.justice.digital.hmpps.annualleaveapi.controller.request.DecisionRequest
+import uk.gov.justice.digital.hmpps.annualleaveapi.controller.response.AssignedLeaveRequestItem
+import uk.gov.justice.digital.hmpps.annualleaveapi.controller.response.BalanceResponse
+import uk.gov.justice.digital.hmpps.annualleaveapi.model.LeaveRequest
+import uk.gov.justice.digital.hmpps.annualleaveapi.model.Status
+import uk.gov.justice.digital.hmpps.annualleaveapi.repository.LeaveRequestRepository
+import uk.gov.justice.digital.hmpps.annualleaveapi.repository.UserRepository
+import java.time.DayOfWeek
+import java.time.LocalDateTime
+import java.util.UUID
+
+@Service
+class LeaveRequestService(
+  private val leaveRequestRepository: LeaveRequestRepository,
+  private val userRepository: UserRepository,
+) {
+
+  fun getRequestsByUser(userId: UUID): List<LeaveRequest> {
+    if (!userRepository.existsById(userId)) {
+      throw UserNotFoundException(userId)
+    }
+
+    return leaveRequestRepository.findAllByCreatorId(userId)
+  }
+
+  fun getBalance(userId: UUID): BalanceResponse {
+    val user = userRepository.findById(userId).orElseThrow { UserNotFoundException(userId) }
+
+    val activeRequests = leaveRequestRepository.findAllByCreatorIdAndStatusIn(
+      userId,
+      listOf(Status.PENDING, Status.APPROVED),
+    )
+
+    val pendingDays = activeRequests.filter { it.status == Status.PENDING }.sumOf { it.duration }
+    val approvedDays = activeRequests.filter { it.status == Status.APPROVED }.sumOf { it.duration }
+
+    return BalanceResponse(
+      annualEntitlement = user.annualEntitlement,
+      availableBalance = user.annualEntitlement - (pendingDays + approvedDays),
+      actualBalance = user.annualEntitlement - approvedDays,
+      pendingDays = pendingDays,
+      approvedDays = approvedDays,
+    )
+  }
+
+  fun createRequest(userId: UUID, request: CreateLeaveRequestBody): LeaveRequest {
+    val user = userRepository.findById(userId).orElseThrow { UserNotFoundException(userId) }
+
+    if (request.endDate.isBefore(request.startDate)) {
+      throw ValidationException("End date must not be before start date")
+    }
+
+    val weekends = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
+
+    if (request.startDate.dayOfWeek in weekends) {
+      throw ValidationException("Start date must not fall on a weekend")
+    }
+
+    if (request.endDate.dayOfWeek in weekends) {
+      throw ValidationException("End date must not fall on a weekend")
+    }
+
+    val duration = LeaveCalculator.calculateDuration(
+      startDate = request.startDate,
+      endDate = request.endDate,
+      isFirstDayHalfDay = request.isFirstDayHalfDay,
+      isLastDayHalfDay = request.isLastDayHalfDay,
+    )
+
+    if (duration <= 0) {
+      throw ValidationException("Leave duration must be greater than 0")
+    }
+
+    val activeRequests = leaveRequestRepository.findAllByCreatorIdAndStatusIn(
+      userId,
+      listOf(Status.PENDING, Status.APPROVED),
+    )
+    val hasOverlap = activeRequests.any {
+      !request.startDate.isAfter(it.endDate) && !request.endDate.isBefore(it.startDate)
+    }
+
+    if (hasOverlap) {
+      throw ValidationException("Leave dates overlap with an existing request")
+    }
+
+    val usedEntitlement = activeRequests.sumOf { it.duration }
+    if (usedEntitlement + duration > user.annualEntitlement) {
+      throw ValidationException(
+        "Insufficient annual entitlement: ${user.annualEntitlement - usedEntitlement} days remaining, but $duration days requested",
+      )
+    }
+
+    val leaveRequest = LeaveRequest(
+      id = UUID.randomUUID(),
+      createdAt = LocalDateTime.now(),
+      creatorId = user.id,
+      approverId = user.managerId,
+      startDate = request.startDate,
+      endDate = request.endDate,
+      duration = duration,
+      isFirstDayHalfDay = request.isFirstDayHalfDay,
+      isLastDayHalfDay = request.isLastDayHalfDay,
+      status = Status.PENDING,
+      creatorNote = request.creatorNote,
+    )
+
+    return leaveRequestRepository.save(leaveRequest)
+  }
+
+  fun deleteRequest(userId: UUID, requestId: UUID) {
+    val request = leaveRequestRepository.findById(requestId)
+      .orElseThrow { LeaveRequestNotFoundException(requestId) }
+
+    if (request.creatorId != userId) {
+      throw ForbiddenException("You can only delete your own leave requests")
+    }
+
+    if (request.status != Status.PENDING) {
+      throw ValidationException("Only pending leave requests can be deleted")
+    }
+
+    leaveRequestRepository.delete(request)
+  }
+
+  fun getAssignedRequests(managerId: UUID): List<AssignedLeaveRequestItem> {
+    if (!userRepository.existsById(managerId)) {
+      throw UserNotFoundException(managerId)
+    }
+
+    val requests = leaveRequestRepository.findAllByApproverId(managerId)
+
+    return requests.map { toAssignedLeaveRequestItem(it) }
+  }
+
+  private fun getCreatorName(request: LeaveRequest): String {
+    val creator = userRepository.findById(request.creatorId)
+      .orElseThrow { UserNotFoundException(request.creatorId) }
+
+    return "${creator.firstName} ${creator.lastName}"
+  }
+
+  private fun toAssignedLeaveRequestItem(request: LeaveRequest): AssignedLeaveRequestItem = AssignedLeaveRequestItem(
+    id = request.id,
+    createdAt = request.createdAt,
+    decisionAt = request.decisionAt,
+    creatorId = request.creatorId,
+    creatorName = getCreatorName(request),
+    approverId = request.approverId,
+    startDate = request.startDate,
+    endDate = request.endDate,
+    duration = request.duration,
+    isFirstDayHalfDay = request.isFirstDayHalfDay,
+    isLastDayHalfDay = request.isLastDayHalfDay,
+    status = request.status,
+    creatorNote = request.creatorNote,
+    approverNote = request.approverNote,
+    decisionSeenAt = request.decisionSeenAt,
+  )
+
+  fun decideRequest(managerId: UUID, requestId: UUID, decision: DecisionRequest): LeaveRequest {
+    if (decision.status == Status.PENDING) {
+      throw ValidationException("Decision must be APPROVED or REJECTED")
+    }
+
+    val request = leaveRequestRepository.findById(requestId)
+      .orElseThrow { LeaveRequestNotFoundException(requestId) }
+
+    if (request.status != Status.PENDING) {
+      throw ValidationException("Only pending leave requests can be approved or rejected")
+    }
+
+    if (request.approverId != managerId) {
+      throw ForbiddenException("You are not the assigned approver for this request")
+    }
+
+    val creator = userRepository.findById(request.creatorId)
+      .orElseThrow { UserNotFoundException(request.creatorId) }
+
+    if (creator.managerId != managerId) {
+      throw ForbiddenException("You are not the manager of the request creator")
+    }
+
+    val updatedRequest = request.copy(
+      status = decision.status,
+      decisionAt = LocalDateTime.now(),
+      approverNote = decision.approverNote,
+    )
+
+    return leaveRequestRepository.save(updatedRequest)
+  }
+
+  fun markDecisionSeen(userId: UUID, requestId: UUID): LeaveRequest {
+    val request = leaveRequestRepository.findById(requestId)
+      .orElseThrow { LeaveRequestNotFoundException(requestId) }
+
+    if (request.creatorId != userId) {
+      throw ForbiddenException("You can only mark your own leave requests as seen")
+    }
+
+    if (request.decisionAt == null) {
+      throw ValidationException("No decision has been made on this request")
+    }
+
+    if (request.decisionSeenAt != null) {
+      throw ValidationException("Decision already seen on ${request.decisionSeenAt}")
+    }
+
+    val updatedRequest = request.copy(decisionSeenAt = LocalDateTime.now())
+
+    return leaveRequestRepository.save(updatedRequest)
+  }
+}
