@@ -3,7 +3,7 @@
 
 generic-service:
   ingress:
-    host: annual-leave-api.hmpps.service.justice.gov.uk
+    host: annual-leave-apprenticeship-project-api.hmpps.service.justice.gov.uk
 
   env:
     HMPPS_AUTH_URL: "https://sign-in.hmpps.service.justice.gov.uk/auth"

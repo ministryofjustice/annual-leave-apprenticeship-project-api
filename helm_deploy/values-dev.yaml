@@ -5,7 +5,7 @@ generic-service:
   replicaCount: 2
 
   ingress:
-    host: annual-leave-api-dev.hmpps.service.justice.gov.uk
+    host: annual-leave-apprenticeship-project-api-dev.hmpps.service.justice.gov.uk
 
   env:
     APPLICATIONINSIGHTS_CONFIGURATION_FILE: "applicationinsights.dev.json"
